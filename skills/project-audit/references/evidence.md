@@ -191,7 +191,7 @@ response bodies or screenshots.
 ## ADVERSARIAL
 
 Run only with the authorization recorded before EVIDENCE began. Invoke **vapt in
-AUDIT mode** ([vapt](../../vapt/SKILL.md) attacks a local instance by trust
+AUDIT mode** (`vapt`, an optional companion skill, attacks a local instance by trust
 boundary with multiple principals and records rule-named abuse cases; if it is
 absent, use the reduced probe below). Its rules of engagement apply in full.
 Inside a project audit its contract is narrowed:

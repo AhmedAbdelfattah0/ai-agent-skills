@@ -108,8 +108,8 @@ Report this honestly; never claim an unbuilt path works.
 ## Governance
 
 Planning and review follow ship-ticket's cross-model method
-([cross-model](../ship-ticket/references/cross-model.md) — if absent: the host
-drafts, the opposite-model counterpart critiques read-only within a bounded
+(`references/cross-model.md` of the optional `ship-ticket` skill, which ships in a
+separate repository — if absent: the host drafts, the opposite-model counterpart critiques read-only within a bounded
 budget, and disagreements are recorded rather than forced to consensus),
 adapted here:
 

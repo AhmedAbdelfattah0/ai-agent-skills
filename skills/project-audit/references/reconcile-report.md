@@ -29,7 +29,7 @@ remediation direction**:
   reported in that state: RECONCILE writes both before the report.
 
 This follows the library's shared review standard
-([review-standard.md](../../code-quality/references/review-standard.md) — a finding
+(`review-standard.md` of the optional `code-quality` companion skill — a finding
 is `file:line` plus quoted code or observed behavior plus a named fix plus a
 severity, and skipping one needs a cited rule ID; if that file is absent, this
 sentence is the whole rule). Here, `file` always carries its repository ID, and

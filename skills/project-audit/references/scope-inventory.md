@@ -230,7 +230,7 @@ but that could not be pinned gets a **placeholder component**:
 The placeholder exists in the inventory, the matrix and the release accounting,
 even though its source cannot be inspected.
 
-Trust-boundary kinds follow [vapt's surface table](../../vapt/SKILL.md) —
+Trust-boundary kinds follow the surface table of the optional `vapt` skill —
 request handlers, the auth/session lifecycle, queries or commands taking external
 input, rendering sinks, server-bound input, file and path handling, client-side
 storage, outbound calls carrying credentials or user data, async consumers of

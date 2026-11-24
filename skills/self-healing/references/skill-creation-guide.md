@@ -14,10 +14,12 @@ proven across the library's skills.
 4. Every relative Markdown link resolves.
 5. No orphan file under `references/` — something reachable from `SKILL.md` must link to it or name it.
 6. Retired vocabulary stays retired.
-7. The canonical outcome vocabulary (PASS, FAIL, NOT_TRIGGERED,
-   NOT_APPLICABLE, DEGRADED) has exactly one owner.
-8. Every cited rule ID (`BE-*`, `NG-*`, `TEST-*`, `DOC-*`, `VAPT-*`; single IDs,
-   ranges, slash and comma lists) exists in the skill that owns it.
+7. A canonical outcome vocabulary (PASS, FAIL, NOT_TRIGGERED,
+   NOT_APPLICABLE, DEGRADED), where a skill defines one, has at most one owner.
+
+A library that also ships rule-owning skills (the separate Factory repository's
+`code-quality`, `test-quality`, `docs-accuracy`, `vapt`) additionally checks that
+every cited rule ID exists in the skill that owns it.
 
 ## The description is a router — write it like one
 
@@ -87,7 +89,7 @@ instead of silently dropping the check.
 5. The rules — **stable IDs** (`XX-01…`) so other skills can cite them,
    grouped by severity band with *why the tier matters*
 6. Self-check before delivery
-7. Reporting format — per `../code-quality/references/review-standard.md`:
+7. Reporting format — per the review standard of the optional `code-quality` skill (separate repository):
    finding = file:line + quote + named fix; reconciled counts; no invented
    scores
 8. **What this skill does not do** — jurisdiction boundaries

@@ -131,15 +131,22 @@ The invocation contract for each is in
 
 | Judgment | Route | If the specialist is absent |
 |---|---|---|
-| Static quality for components with no dedicated specialist (for example React or Vue front ends, or libraries) | [code-quality](../code-quality/SKILL.md) hub — explicit `UNIVERSAL`, `AI-FM` and project-constitution checklist rows, never a Verification Pass | Apply SOLID, DRY, KISS, YAGNI and the repository's own conventions by direct inspection; rows are `DEGRADED`, with no rule IDs. |
-| Angular front ends | [angular-code-quality](../angular-code-quality/SKILL.md) — `NG-*` Verification Pass per component | Fall back to the code-quality hub; with no family member at all, direct inspection as above, `DEGRADED`. |
-| Backends in any language | [backend-code-quality](../backend-code-quality/SKILL.md) — `BE-*` Verification Pass, including its security, auth and tenancy rows | Fall back to the code-quality hub, and read authorization, validation and tenancy by direct inspection; `DEGRADED`, no rule IDs. |
-| Test code quality | [test-quality](../test-quality/SKILL.md) — `TEST-*` review mode | Check that tests assert behavior rather than internals and mock only true boundaries; `DEGRADED`. Test *adequacy* stays this skill's own method. |
-| Documentation claims | [docs-accuracy](../docs-accuracy/SKILL.md) — `DOC-*` review mode | Verify each documented command, path, flag and symbol against the pinned source by searching for its definition; `DEGRADED`. |
+| Static quality for components with no dedicated specialist (for example React or Vue front ends, or libraries) | `code-quality` hub — explicit `UNIVERSAL`, `AI-FM` and project-constitution checklist rows, never a Verification Pass | Apply SOLID, DRY, KISS, YAGNI and the repository's own conventions by direct inspection; rows are `DEGRADED`, with no rule IDs. |
+| Angular front ends | `angular-code-quality` — `NG-*` Verification Pass per component | Fall back to the code-quality hub; with no family member at all, direct inspection as above, `DEGRADED`. |
+| Backends in any language | `backend-code-quality` — `BE-*` Verification Pass, including its security, auth and tenancy rows | Fall back to the code-quality hub, and read authorization, validation and tenancy by direct inspection; `DEGRADED`, no rule IDs. |
+| Test code quality | `test-quality` — `TEST-*` review mode | Check that tests assert behavior rather than internals and mock only true boundaries; `DEGRADED`. Test *adequacy* stays this skill's own method. |
+| Documentation claims | `docs-accuracy` — `DOC-*` review mode | Verify each documented command, path, flag and symbol against the pinned source by searching for its definition; `DEGRADED`. |
 | Whole-codebase static security | [security-audit](../security-audit/SKILL.md) (vendored from cloudflare/security-audit-skill) — full audit mode as a scoped run over the component's paths; output stays outside the repository | Read the critical trust boundaries for authorization, input validation, secret handling and security configuration by direct inspection; `DEGRADED`. |
-| Runtime adversarial checks | [vapt](../vapt/SKILL.md) AUDIT mode, only with explicit authorization and its local, disposable rules of engagement | With authorization, run the reduced cross-principal and credential probe on critical boundaries only; without authorization, the rows are `DEGRADED` as not authorized. |
+| Runtime adversarial checks | `vapt` AUDIT mode, only with explicit authorization and its local, disposable rules of engagement | With authorization, run the reduced cross-principal and credential probe on critical boundaries only; without authorization, the rows are `DEGRADED` as not authorized. |
 | Build, test, lint, docs commands | each repository's own commands, as its CI runs them, in that repository; system-level ones from the orchestration root | — (a command that cannot run here is `DEGRADED`) |
 | Architecture, contracts, operations, data stores, integrations, declared constraints | direct inspection by this skill | — (findings cite qualified anchors, carry no rule ID) |
+
+**Optional companions (separate repository).** `code-quality` (with its
+`angular-code-quality` and `backend-code-quality` stacks), `test-quality`,
+`docs-accuracy`, `vapt`, `generate-ticket` and `ship-ticket` are not part of this
+library; they ship separately and are optional. `security-audit` ships here.
+When a companion is not installed, its row above uses the "If the specialist is
+absent" fallback, which is the documented `DEGRADED` coverage.
 
 Check a skill in the available-skill list or its installed sibling folder, and a
 CLI by running its version command. Never invent a rule ID for a specialist that
