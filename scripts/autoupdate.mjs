@@ -19,9 +19,9 @@ import { homedir, platform } from 'node:os';
 import { dirname, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const LAUNCHD_LABEL = 'com.ai-skills.update';
-const SYSTEMD_UNIT = 'ai-skills-update';
-const SCHTASKS_NAME = 'AI Skills Update';
+const LAUNCHD_LABEL = 'com.ai-agent-skills.update';
+const SYSTEMD_UNIT = 'ai-agent-skills-update';
+const SCHTASKS_NAME = 'AI Agent Skills Update';
 
 // How we recognise our own hook: install must be idempotent, and remove must
 // never take somebody else's SessionStart hook with it. The identity is the
@@ -108,7 +108,7 @@ function plistXml(cliPath) {
 }
 
 // systemd splits ExecStart on whitespace, so an unquoted path containing a space
-// — AI_SKILLS_HOME="/home/me/AI Skills" is entirely legal — installs a timer that
+// — AI_AGENT_SKILLS_HOME="/home/me/AI Skills" is entirely legal — installs a timer that
 // can never run the CLI. Double-quote every dynamic value, and escape the `%`
 // that systemd would otherwise read as a specifier. StandardOutput is omitted
 // for the same reason as launchd's: it is opened before the process starts.
@@ -118,7 +118,7 @@ function systemdUnits(cliPath) {
   const { nodeBin, path } = jobEnv();
   return {
     service: `[Unit]
-Description=Update the AI-Skills library
+Description=Update the ai-agent-skills library
 
 [Service]
 Type=oneshot
@@ -126,7 +126,7 @@ Environment=${sdQuote(`PATH=${path}`)}
 ExecStart=${sdQuote(nodeBin)} ${sdQuote(cliPath)} update --auto
 `,
     timer: `[Unit]
-Description=Daily AI-Skills update
+Description=Daily ai-agent-skills update
 
 [Timer]
 OnCalendar=daily
@@ -215,7 +215,7 @@ function editHook(install, cliPath) {
   // setting in the file, the very outcome the malformed-input check above exists
   // to avoid. Write a sibling, flush it to disk, then rename over the original;
   // rename within a directory is atomic, so a reader sees old or new, never half.
-  const tmp = join(dirname(target), `.settings.json.ai-skills-${process.pid}`);
+  const tmp = join(dirname(target), `.settings.json.ai-agent-skills-${process.pid}`);
   try {
     const fd = openSync(tmp, 'w');
     try {
@@ -344,7 +344,7 @@ export function autoupdate(args, ctx) {
   if (ctx.ephemeral) {
     console.error('❌ this source is an npx cache, which is deleted between runs.');
     console.error('   A scheduled job pointing at it would break. Clone the repo first — or run');
-    console.error('   the curl installer, which clones into ~/.ai-skills — and set it up there.');
+    console.error('   the curl installer, which clones into ~/.ai-agent-skills — and set it up there.');
     process.exit(1);
   }
 

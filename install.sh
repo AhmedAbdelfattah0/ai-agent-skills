@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-line installer for this skill library:
 #
-#   curl -fsSL https://raw.githubusercontent.com/AhmedAbdelfattah0/AI-Skills/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/AhmedAbdelfattah0/ai-agent-skills/main/install.sh | bash
 #
 # It clones (or fast-forwards) the repo into a managed location, symlinks every
 # skill into your agents' skills directories, and turns on automatic updates.
@@ -10,21 +10,21 @@
 # SessionStart hook do for you.
 #
 # Environment overrides:
-#   AI_SKILLS_HOME=<dir>        where to keep the clone      (default: ~/.ai-skills)
-#   AI_SKILLS_REF=<branch|tag>  which ref to install         (default: main)
-#   AI_SKILLS_TARGET=<t,..>     which tools to install for   (default: claude)
+#   AI_AGENT_SKILLS_HOME=<dir>        where to keep the clone      (default: ~/.ai-agent-skills)
+#   AI_AGENT_SKILLS_REF=<branch|tag>  which ref to install         (default: main)
+#   AI_AGENT_SKILLS_TARGET=<t,..>     which tools to install for   (default: claude)
 #                               claude | codex | gemini | agents | antigravity | all
-#   AI_SKILLS_NO_AUTOUPDATE=1   install, but do not schedule anything
+#   AI_AGENT_SKILLS_NO_AUTOUPDATE=1   install, but do not schedule anything
 #
 # This script is deliberately thin: it bootstraps, then hands off to
 # scripts/cli.mjs, which is the single implementation of install and update.
 
 set -euo pipefail
 
-REPO="https://github.com/AhmedAbdelfattah0/AI-Skills.git"
-HOME_DIR="${AI_SKILLS_HOME:-$HOME/.ai-skills}"
-REF="${AI_SKILLS_REF:-main}"
-TARGET="${AI_SKILLS_TARGET:-claude}"
+REPO="https://github.com/AhmedAbdelfattah0/ai-agent-skills.git"
+HOME_DIR="${AI_AGENT_SKILLS_HOME:-$HOME/.ai-agent-skills}"
+REF="${AI_AGENT_SKILLS_REF:-main}"
+TARGET="${AI_AGENT_SKILLS_TARGET:-claude}"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -68,7 +68,7 @@ if [ -d "$HOME_DIR/.git" ]; then
     echo "   found:    ${EXISTING:-<no origin remote>}" >&2
     echo "   expected: $REPO" >&2
     echo "   Refusing to fetch or run code from it. Move it aside, or set" >&2
-    echo "   AI_SKILLS_HOME=<another dir> and re-run." >&2
+    echo "   AI_AGENT_SKILLS_HOME=<another dir> and re-run." >&2
     exit 1
   fi
   # From here on this script EXECUTES $HOME_DIR/scripts/cli.mjs. So every step
@@ -90,7 +90,7 @@ if [ -d "$HOME_DIR/.git" ]; then
   echo "📦 updating $HOME_DIR"
   # Fetch the ref and pin the exact commit it resolved to. FETCH_HEAD works for a
   # TAG as well as a branch — `origin/<tag>` does not exist, so merging against it
-  # rejected the documented AI_SKILLS_REF=v1.0.0 path outright.
+  # rejected the documented AI_AGENT_SKILLS_REF=v1.0.0 path outright.
   git -C "$HOME_DIR" fetch --quiet origin "$REF" || { echo "❌ fetch of $REF failed." >&2; exit 1; }
   WANT="$(git -C "$HOME_DIR" rev-parse FETCH_HEAD)" || { echo "❌ could not resolve $REF." >&2; exit 1; }
   git -C "$HOME_DIR" checkout --quiet "$REF" || { echo "❌ checkout of $REF failed." >&2; exit 1; }
@@ -110,7 +110,7 @@ if [ -d "$HOME_DIR/.git" ]; then
     echo "❌ $HOME_DIR has files marked assume-unchanged or skip-worktree." >&2
     echo "   Those hide local modifications from git, and this script runs code" >&2
     echo "   from that tree. Clear them (git update-index --no-skip-worktree …)" >&2
-    echo "   or re-clone into a different AI_SKILLS_HOME." >&2
+    echo "   or re-clone into a different AI_AGENT_SKILLS_HOME." >&2
     exit 1
   fi
 
@@ -125,7 +125,7 @@ if [ -d "$HOME_DIR/.git" ]; then
   fi
 elif [ -e "$HOME_DIR" ]; then
   echo "❌ $HOME_DIR exists but is not a git repository. Refusing to touch it." >&2
-  echo "   Move it aside, or set AI_SKILLS_HOME=<another dir> and re-run." >&2
+  echo "   Move it aside, or set AI_AGENT_SKILLS_HOME=<another dir> and re-run." >&2
   exit 1
 else
   echo "📦 cloning into $HOME_DIR"
@@ -135,8 +135,8 @@ fi
 echo
 node "$HOME_DIR/scripts/cli.mjs" install --link --target "$TARGET"
 
-if [ "${AI_SKILLS_NO_AUTOUPDATE:-}" = "1" ]; then
-  echo "   (AI_SKILLS_NO_AUTOUPDATE=1 — nothing scheduled; run \"update\" yourself.)"
+if [ "${AI_AGENT_SKILLS_NO_AUTOUPDATE:-}" = "1" ]; then
+  echo "   (AI_AGENT_SKILLS_NO_AUTOUPDATE=1 — nothing scheduled; run \"update\" yourself.)"
 else
   echo
   node "$HOME_DIR/scripts/cli.mjs" autoupdate --install

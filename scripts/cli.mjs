@@ -2,9 +2,9 @@
 // Cross-platform skill manager for this repo (Windows / macOS / Linux).
 // Dependency-free — uses only Node built-ins. Runnable three ways:
 //
-//   npx github:AhmedAbdelfattah0/AI-Skills <cmd>   # no clone needed (installs by copy)
+//   npx github:AhmedAbdelfattah0/ai-agent-skills <cmd>   # no clone needed (installs by copy)
 //   node scripts/cli.mjs <cmd>                     # from a clone
-//   ai-skills <cmd>                                # after `npm i -g` or `npm link`
+//   ai-agent-skills <cmd>                                # after `npm i -g` or `npm link`
 //
 // Commands:
 //   list                       show every skill in the repo
@@ -167,7 +167,7 @@ function truncate(s, n) {
 // opposite correct answers — refresh the first, never clobber the second — so
 // install records what it wrote. The manifest is a dotfile, not a directory, so
 // no skill scanner (they look for `<dir>/SKILL.md`) ever sees it.
-const MANIFEST = '.ai-skills-manifest.json';
+const MANIFEST = '.ai-agent-skills-manifest.json';
 
 function readManifest(dir) {
   try { return JSON.parse(readFileSync(join(dir, MANIFEST), 'utf8')); } catch { return null; }
@@ -230,7 +230,7 @@ function stateDir() {
   const base = process.env.XDG_STATE_HOME
     || (isWin ? (process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local')) : join(homedir(), '.local', 'state'));
   const key = createHash('sha256').update(REPO_ROOT).digest('hex').slice(0, 12);
-  return join(base, 'ai-skills', key);
+  return join(base, 'ai-agent-skills', key);
 }
 
 // An age alone is not evidence a runner died: a pull over a slow link can exceed
@@ -500,13 +500,10 @@ function cmdList() {
   }
 }
 
-// Retired skills kept as rule-less aliases for one release (O-6; CQ-4 removes the
-// aliases and this map at the next release). An install that holds only the alias
-// holds no rules, so `install` and `update` both put the successor beside it.
-const RETIRED_SKILLS = {
-  'angular-code-quality': 'code-quality',
-  'backend-code-quality': 'code-quality',
-};
+// Retired skills kept as rule-less aliases, mapped to their successor. An install
+// that holds only the alias holds no rules, so `install` and `update` both put the
+// successor beside it. This library has no retired skills, so the map is empty.
+const RETIRED_SKILLS = {};
 const SUCCESSORS = new Set(Object.values(RETIRED_SKILLS));
 
 // Why an existing successor directory must not be replaced, or null when it is
@@ -526,7 +523,7 @@ function successorCollision(dst, src, record) {
 function cmdInstall(args) {
   const wantCopy = args.includes('--copy') || args.includes('-c');
   const wantLink = args.includes('--link') || args.includes('-l');
-  // --force lets install replace a successor (code-quality) that is edited or not ours.
+  // --force lets install replace a successor that is edited or not ours.
   const force = args.includes('--force') || args.includes('-f');
 
   // Parse --target <t1,t2|all> and --dest <path>; remaining bare words = skill names.
@@ -862,7 +859,7 @@ function runUpdate(args) {
       if (st.isSymbolicLink()) {
         let target = null;
         try { target = resolve(dirname(dst), readlinkSync(dst)); } catch { /* unreadable */ }
-        // Containment is not identity. `security -> <repo>/skills/vapt` lives under
+        // Containment is not identity. `security -> <repo>/skills/security-audit` lives under
         // SKILLS_DIR but is an alias the user made, not our install of `security`;
         // reporting it live forever, and pruning it on a dangling target, are both
         // wrong. Only the exact expected target is ours.
@@ -1031,7 +1028,7 @@ function applySkill(src, dst, mode, manifest, name) {
   // meant two processes touching the same skill would delete each other's
   // staging tree, or promote one while the other was still copying it — which
   // is precisely the half-written destination the staging exists to prevent.
-  const tmpRoot = join(dirname(dst), '.ai-skills-tmp');
+  const tmpRoot = join(dirname(dst), '.ai-agent-skills-tmp');
   const attempt = `${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const staged = join(tmpRoot, `${name}.new.${attempt}`);
   const backup = join(tmpRoot, `${name}.old.${attempt}`);
@@ -1097,7 +1094,7 @@ function applySkill(src, dst, mode, manifest, name) {
 // nothing would ever look at its backup, and the next run's cleanup would delete
 // it. Runs before anything else touches the directory.
 function recoverInterrupted(dir) {
-  const tmpRoot = join(dir, '.ai-skills-tmp');
+  const tmpRoot = join(dir, '.ai-agent-skills-tmp');
   if (!existsSync(tmpRoot)) return [];
   const restored = [];
   let entries = [];
@@ -1196,123 +1193,12 @@ function originalLineForRetiredHit(source, originalOffsets, normalizedOffset) {
   return source.slice(0, sourceOffset).split('\n').length;
 }
 
-// ---- check 8: cited rule IDs -------------------------------------------------
-//
-// Each rule-ID prefix belongs to one skill, which alone may define it.
-const RULE_ID_OWNERS = {
-  BE: 'code-quality',
-  NG: 'code-quality',
-  TEST: 'test-quality',
-  DOC: 'docs-accuracy',
-  VAPT: 'vapt',
-};
-
-// Where a prefix may be defined, when not anywhere in its owner: the files under
-// the owner's directory. code-quality's other files only cite NG/BE IDs, so a
-// citation there (or a typo) is checked against the stack references instead
-// of defining itself.
-const RULE_ID_DEFINING_FILES = {
-  BE: ['references/stack-backend.md'],
-  NG: ['references/stack-angular.md'],
-};
-
-// An ID is PREFIX-NN or PREFIX-FAMILY-NN with exactly two digits. After the first
-// ID a citation may continue as a range (BE-AUTH-01…07, also `..`, `...`, an en
-// dash), a slash list (BE-SEC-01/02) or a comma list (NG-ARCH-03,05). A range or
-// slash list is one whatever follows it ("TEST-01..12 from the …"). A range end is
-// bare (…07), the head's prefix and family (…BE-AUTH-07, …TEST-12) or its family
-// alone (…AUTH-09); that is the `(?:(?:\1-)?\2)?` below, \1 and \2 being the head's
-// prefix and family. An end that is a full ID of another prefix or family is not
-// consumed, so the global match reads it as a citation of its own. An end with
-// another family and no prefix (BE-AUTH-01…VAL-03) cannot be read as a citation,
-// so only the head is checked. A comma-list member followed by a word is prose
-// ("BE-SEC-01, 20 lines later"): the lookahead gives it back, which also means a
-// member followed by a word (`TEST-01, 02 and 08`) is read as prose and not checked. A
-// wildcard has no digits and an unlisted prefix (TICKET-108, CWE-22) is not in the
-// owner table, so neither matches.
-const NOT_BEFORE_WORD = '(?![ \\t]*[A-Za-z0-9])';
-const RULE_ID_RE = new RegExp(
-  `(?<![A-Za-z0-9_-])(${Object.keys(RULE_ID_OWNERS).join('|')})-((?:[A-Z]+-)?)(\\d{2})(?!\\d)`
-  + '(?:[ \\t]*(?:…|\\.{2,3}|–)[ \\t]*(?:(?:\\1-)?\\2)?(\\d{2})(?!\\d)'
-  + '|((?:/\\d{2}(?!\\d))+)'
-  + `|((?:,[ \\t]*\\d{2}(?!\\d))+)${NOT_BEFORE_WORD})?`,
-  'g',
-);
-
-const lineAt = (text, index) => text.slice(0, index).split('\n').length;
-
-// Numbers a citation names: the head, plus whatever its range or list adds.
-function citedNumbers(head, rangeEnd, slashes, commas) {
-  const nums = [head];
-  if (rangeEnd) {
-    // Both orders: TEST-12…01 names every ID between its ends, not only the head.
-    const [lo, hi] = [Math.min(head, Number(rangeEnd)), Math.max(head, Number(rangeEnd))];
-    for (let n = lo; n <= hi; n++) nums.push(n);
-  }
-  if (slashes) nums.push(...slashes.split('/').filter(Boolean).map(Number));
-  if (commas) nums.push(...commas.split(',').map((s) => s.trim()).filter(Boolean).map(Number));
-  return nums;
-}
-
-const ruleId = (prefix, family, n) => `${prefix}-${family}${String(n).padStart(2, '0')}`;
-
-// Every ID a text cites, expanded, with its line.
-function citedRuleIds(text) {
-  const cited = [];
-  for (const m of text.matchAll(RULE_ID_RE)) {
-    const [, prefix, family, head, rangeEnd, slashes, commas] = m;
-    const line = lineAt(text, m.index);
-    for (const n of citedNumbers(Number(head), rangeEnd, slashes, commas)) {
-      cited.push({ id: ruleId(prefix, family, n), line });
-    }
-  }
-  return cited;
-}
-
-// Only a full ID token defines an ID: a range or list inside the owner does not
-// define its expanded members. Known limit, accepted: a typo inside the owning
-// skill defines itself, because this cannot tell a definition from a citation.
-function definedRuleIds(text) {
-  return new Set([...text.matchAll(RULE_ID_RE)].map((m) => ruleId(m[1], m[2], Number(m[3]))));
-}
-
 // The Markdown a skill is judged by: its SKILL.md and every references/**/*.md.
 function skillDocs(name) {
   const docs = [join(SKILLS_DIR, name, 'SKILL.md')];
   const refDir = join(SKILLS_DIR, name, 'references');
   if (existsSync(refDir)) walk(refDir, (f) => { if (f.endsWith('.md')) docs.push(f); });
   return docs;
-}
-
-// prefix -> Set of defined IDs, or null when the owning skill is not in the library.
-function collectRuleDefinitions() {
-  const defs = {};
-  for (const [prefix, owner] of Object.entries(RULE_ID_OWNERS)) {
-    if (!existsSync(join(SKILLS_DIR, owner))) { defs[prefix] = null; continue; }
-    defs[prefix] = new Set();
-    const files = RULE_ID_DEFINING_FILES[prefix]?.map((f) => join(SKILLS_DIR, owner, f)) ?? skillDocs(owner);
-    for (const doc of files.filter(existsSync)) {
-      for (const id of definedRuleIds(readFileSync(doc, 'utf8'))) defs[prefix].add(id);
-    }
-  }
-  return defs;
-}
-
-// One entry per distinct undefined ID per line, in file order.
-function undefinedCitations(docs, definitions) {
-  const missing = [];
-  for (const doc of docs) {
-    const path = relative(SKILLS_DIR, doc).split(sep).join('/');
-    const seen = new Set();
-    for (const { id, line } of citedRuleIds(readFileSync(doc, 'utf8'))) {
-      const prefix = id.split('-')[0];
-      const key = `${line}:${id}`;
-      if (definitions[prefix]?.has(id) || seen.has(key)) continue;
-      seen.add(key);
-      missing.push({ id, line, path, owner: RULE_ID_OWNERS[prefix] });
-    }
-  }
-  return missing;
 }
 
 function cmdValidate() {
@@ -1328,7 +1214,6 @@ function cmdValidate() {
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   console.log(`Validating skills in ${SKILLS_DIR}\n`);
-  const ruleDefinitions = collectRuleDefinitions();
   let fail = false;
   const outcomeVocabularyOwners = [];
 
@@ -1415,8 +1300,8 @@ function cmdValidate() {
     }
 
     // 6. Retired vocabulary stays retired. A concept deleted from a skill but left
-    //    referenced elsewhere is the failure mode that put a dozen dead references
-    //    to a removed classifier into ship-ticket. Each entry: /regex/ + why.
+    //    referenced elsewhere leaves live instructions pointing at nothing.
+    //    Each entry: /regex/ + why.
     const retiredDocs = docs.map((doc) => {
       const source = readFileSync(doc, 'utf8');
       return { doc, source, ...normalizeRetiredVocabularyInput(source) };
@@ -1450,28 +1335,19 @@ function cmdValidate() {
         }
     }
 
-    // 8. Every rule ID a skill cites is defined by the skill that owns its prefix.
-    //    Otherwise a citation can point at a rule that was never written, and the
-    //    reviewer who follows it finds nothing to enforce.
-    for (const c of undefinedCitations(docs, ruleDefinitions)) {
-      const gone = ruleDefinitions[c.id.split('-')[0]] === null ? ' Its owner skill is missing from the library.' : '';
-      console.log(`❌ ${name}: ${c.path}:${c.line} cites '${c.id}', which ${c.owner} does not define.${gone}`);
-      err = fail = true;
-    }
-
     if (!err) console.log(`✅ ${name}`);
   }
 
-  if (outcomeVocabularyOwners.length !== 1) {
-    console.log(`❌ canonical outcome vocabulary has ${outcomeVocabularyOwners.length} owners — expected exactly one.`);
+  // No skill in this library defines an outcome vocabulary; if one ever does, it
+  // must stay the only owner.
+  if (outcomeVocabularyOwners.length > 1) {
+    console.log(`❌ canonical outcome vocabulary has ${outcomeVocabularyOwners.length} owners — expected at most one.`);
     fail = true;
   }
 
   // The repo's own guidance files are held to the retired-vocabulary rule too.
-  // ship-ticket defers to AGENTS.md on any conflict, so guidance that still names
-  // a deleted concept can resurrect it — which is exactly how the two copies of
-  // this file drifted 76 lines apart while one of them described a classifier
-  // that no longer existed.
+  // Agents defer to AGENTS.md, so guidance that still names a deleted concept can
+  // resurrect it.
   for (const guide of ['AGENTS.md', 'CLAUDE.md']) {
     const gp = join(ROOT, guide);
     if (!existsSync(gp)) continue;
@@ -1514,135 +1390,23 @@ const RETIRED_VOCABULARY = [
   [/\btravel, scale and stagger\b/gi, 'reduced motion: only colour and opacity animate', ['design-prompts']],
   [/\bdo not introduce new durations\b/gi, 'UPDATE adds only feature-scoped tokens as a scoped amendment to 01-DESIGN.md', ['design-prompts']],
   [/Never "none"/g, 'motion level none is allowed with a stated reason; interactive screens default to at least subtle', ['design-prompts']],
-  [/\bestimated (?:parallel )?(?:savings|saved time)\b/gi, 'ship-ticket reports measured concurrent overlap with timing limitations, not causal time savings', ['ship-ticket']],
-  [/\boptional Codex opinion\b/gi, 'ship-ticket selects its optional counterpart from the host identity', ['ship-ticket']],
-  [/\bCross-model plan critique\b/gi, 'ship-ticket PLAN uses bounded reciprocal debate and records convergence', ['ship-ticket']],
-  [/\bGATE [345]\b/g, 'ship-ticket uses named phases and checks, not numbered gates', ['ship-ticket', 'vapt', 'generate-ticket', 'code-quality']],
-  [/\bfinal\s+`?mutation_round`?/gi, 'mutation_round is derived and is never a stored final field', ['ship-ticket']],
-  [/\bmutation_round:\s*\d+\b/gi, 'mutation_round is derived and is never a stored scalar', ['ship-ticket']],
-  [/mutation_round`?\s+is the length of `?batches\[\]`?/gi, 'mutation_round is partitioned by active run_id, not counted across ticket history', ['ship-ticket']],
-  [/\bnew (?:approved plan and a )?run record\b/gi, 'a new execution appends a run partition to the existing record', ['ship-ticket']],
-  [/\bOne schema, three consumers\b/g, 'the run record has a truthful precommit projection and a separate external postcommit projection', ['ship-ticket']],
-  [/\bany stop (?:after it )?ends the current run\b/gi, 'REVIEW stops conclude; resumable external SHIP failures pause without reopening review', ['ship-ticket']],
-  [/\bAny PR, tracker or CI check fails\b/g, 'SHIP distinguishes resumable service failures from deterministic red checks and content changes', ['ship-ticket']],
-  [/\bresume SHIP only if the final candidate manifest\b/gi, 'SHIP resumes by representation-independent reviewed_content_id, not a manifest changed by commit', ['ship-ticket']],
-  [/\bA retry that changes no repository bytes may rerun CI only\b/gi, 'SHIP resumes missing idempotent external operations under reviewed_content_id', ['ship-ticket']],
-  [/\b(?:one CI wait|wait exactly once for CI)\b/gi, 'SHIP has one enumerated CI gate; infrastructure retries do not reopen REVIEW', ['ship-ticket']],
-  [/\bwait once for CI\b/gi, 'SHIP waits for the enumerated gate and may resume an infrastructure-interrupted wait', ['ship-ticket']],
-  [/\bpost-verdict session-log entry\b/gi, 'the session log stops at the precommit SHIP_READY cutoff', ['ship-ticket']],
-  [/\bremaining SHIP timing\/result entries\b/gi, 'only knowable SHIP_READY facts enter the committed projection', ['ship-ticket']],
-  [/\bSHIP result slots may be appended\b/gi, 'repository result writes end at the precommit SHIP_READY cutoff', ['ship-ticket']],
-  [/\bso they ride the single gated commit\b/gi, 'postcommit outcomes stay external because they do not exist at the commit cutoff', ['ship-ticket']],
-  [/\bAdd one merge-blocking check\b/g, 'VAPT GATE detects enforcement; only explicit setup work may install it', ['vapt']],
-  [/\bInstalling (?:the|it) check is repo setup, never something (?:a|this) ticket adds after the freeze\b/gi, 'CI enforcement is caller-aware: detect in GATE, install only in explicit pre-freeze setup work', ['ship-ticket', 'vapt']],
-  [/\band a merge-blocking CI check[\s\S]{0,120}is what actually stops a regression\b/gi, 'VAPT accepts declared enforcement degradation in GATE mode while committed tests still run in CI', ['vapt']],
-  [/\bTwo vocabularies, at two levels\b/g, 'rule rows and whole checks share one canonical outcome vocabulary', ['ship-ticket']],
-  [/\bPASS_(?:FULL|GROUPED|REUSED)\b/g, 'execution detail belongs in execution_mode; PASS is the canonical outcome', ['ship-ticket', 'vapt']],
-  [/\bNOT_APPLICABLE_NO_SCREEN_REFERENCE\b/g, 'NOT_APPLICABLE is the outcome and NO_SCREEN_REFERENCE is a reason_code', ['ship-ticket']],
-  [/\bPASS\s*\/\s*FAIL\s*\/\s*N-A\b/g, 'rule rows use the canonical outcome vocabulary', ['ship-ticket', 'code-quality']],
-  [/\bN-A\b/g, 'the canonical applicability outcome is NOT_APPLICABLE', ['ship-ticket', 'code-quality']],
-  [/\bN\/A\b/g, 'the canonical applicability outcome is NOT_APPLICABLE', ['ship-ticket', 'vapt', 'angular-code-quality', 'backend-code-quality', 'code-quality']],
-  [/\bFIXED\b/g, 'a fixed finding has outcome PASS and records fixed as disposition evidence', ['vapt']],
-  [/\| Rule \| Status \| Evidence \|/g, 'routed rule rows use the canonical Subject ID | Outcome | Evidence shape', ['angular-code-quality', 'backend-code-quality', 'code-quality']],
-  [/\| Rule \| Surface \| Verdict \| Evidence \|/g, 'VAPT rows use the canonical Subject ID | Outcome | Evidence shape', ['vapt']],
-  [/\bBoth halves are load-bearing, and REVIEW compares the pair\b/g, 'test coverage matches body digests first so a name-only rename remains equivalent', ['ship-ticket']],
-  [/\beach test ID being PROVE's name-plus-body-digest pair\b/g, 'coverage vectors use body-digest multisets; test names are locators and rename evidence', ['ship-ticket']],
-  [/\b(?:terminal verdict when one is required|when terminal review is required)\b/gi, 'every ship-ticket run gets an unconditional terminal reviewer', ['ship-ticket']],
-  [/\bno terminal verdict recorded\b/gi, 'ship-ticket resumption keys on whether REVIEW started, not whether a verdict exists', ['ship-ticket']],
-  [/\bauthz (?:predicate|component)\b/gi, 'boundary identity excludes prose authorization labels; executable test IDs carry authorization coverage', ['ship-ticket']],
-  [/\bship-ticket(?:'s)?\s+step\s+\d+(?:\.\d+)?\b/gi, 'ship-ticket uses named phases rather than numbered steps', ['vapt', 'generate-ticket']],
-  [/\bsigns later\b/gi, 'the terminal reviewer is the only signature; the plan-critique route never signs', ['ship-ticket']],
-  [/\bempty schema-defined slots?\b/gi, 'parity and VAPT evidence artifacts freeze whole; later results live in the plan run-state block', ['ship-ticket']],
-  [/\b(?:barrier 2|round 3|further rounds?)\b/gi, 'ship-ticket review has one repair barrier and one terminal verdict', ['ship-ticket']],
-  [/\b(?:F2|Fn|F\(n[−-]1\))\b/g, 'ship-ticket review has only F0 and an optional F1 candidate', ['ship-ticket']],
-  [/\bscope[_ -]digests?\b/gi, 'terminal review binds to manifests and the frozen-record digest; the separate scope digest was deleted', ['ship-ticket']],
-  [/\bpayload[_ -]digests?\b/gi, 'the separate signing payload and its digest were deleted', ['ship-ticket']],
-  [/\bunsigned verdicts?\b/gi, 'review outputs now feed one terminal verdict directly', ['ship-ticket']],
-  [/\bindependent signatures?\b/gi, 'independence now belongs to the terminal reviewer, with no separate signing dispatch', ['ship-ticket', 'generate-ticket', 'vapt']],
-  [/\bsignature blocks?\b/gi, 'separate parity and security signature blocks were folded into the terminal verdict', ['ship-ticket']],
-  [/\bsigners?\b/gi, 'ship-ticket and vapt use reviewers and outcomes, not a separate signer role', ['ship-ticket', 'vapt']],
-  [/\bresumable signer route\b/gi, 'the terminal reviewer is a one-shot route', ['ship-ticket']],
-  [/\bre[- ]?sign(?:ing|atures?)\b/gi, 'terminal outcomes are never reopened inside the same run', ['ship-ticket']],
-  [/\bsame[- ]reviewer rule\b/gi, 'the signing resumption ceremony was deleted', ['ship-ticket']],
-  [/\bstaleness rule\b/gi, 'record immutability and manifest binding replace signature staleness', ['ship-ticket']],
-  [/\bevery (?:claim, count, citation and )?conclusion (?:a reader would check )?belongs in the prefix\b/gi, 'conclusions live in the append-only run-state block; the frozen prefix holds only pre-F0 claims', ['ship-ticket']],
-  [/\bevery batch carries `?fix_packet_digest`?\b/gi, 'only the REVIEW barrier-1 batch carries a fix packet; PROVE and pre-F0 batches precede any packet', ['ship-ticket']],
-  [/\b(?:a )?config boundary\b/gi, 'record boundaries by vapt kind code — security-config, never prose', ['ship-ticket']],
-  [/\boutbound credential path\b/gi, 'record boundaries by vapt kind code — outbound-data, never prose', ['ship-ticket']],
-  [/\bparity verdict (?:is )?re-derived\b/gi, 'the complete parity comparison runs once in round 1', ['ship-ticket']],
-  [/\bregenerate the parity draft\b/gi, 'post-F0 UI changes receive a targeted impact check instead', ['ship-ticket']],
-  [/\bstrict mode\b/gi, 'vapt no longer owns a separate review or signing mode', ['vapt']],
-  [/\bsigned-off:/gi, 'vapt produces runtime evidence; ship-ticket terminal review owns review attestation', ['vapt']],
-  [/\brun[- ]lanes?\b/gi, 'ship-ticket\'s FAST/STANDARD/HEAVY classifier was deleted; coverage is constant', ['ship-ticket']],
-  [/\bREVIEW timing degraded\b/gi, 'serial round 1 is a stop, never a declared timing degradation', ['ship-ticket']],
-  [/\brun A, B and C serially\b/gi, 'serial round 1 is a stop, never a declared timing degradation', ['ship-ticket']],
-  [/\bserial round 1\b/gi, 'serial round 1 is a stop, never a declared timing degradation', ['ship-ticket']],
-  [/\bformatters and generators first\b/gi, 'the mutation budget is read before the first candidate mutation, formatters included', ['ship-ticket']],
-  [/\bRun formatters and generators before\b/gi, 'the mutation budget is read before the first candidate mutation, formatters included', ['ship-ticket']],
-  [/\bno record mutatio[n]\b/gi, 'the post-F0 ban names candidate files and frozen prefixes; append-only run-state writes are required', ['ship-ticket']],
-  [/\bRecord text, comments, docblocks and artifact prefixes remain unchange[d]\b/gi, 'plan/parity/VAPT evidence stays frozen while only a sealed repair-induced candidate-prose slice may change', ['ship-ticket']],
-  [/\bA post-`?F0`? record mismatch, narrative edit or correction request ends the current ru[n]\b/gi, 'post-F0 evidence mismatches stop, but a predeclared repair-induced candidate-prose consequence may share barrier 1', ['ship-ticket']],
-  [/\bbarrier 1 may then change code and tests onc[e]\b/gi, 'barrier 1 seals one candidate batch that may include only predeclared prose consequences actually caused by its code/test units', ['ship-ticket']],
-  [/\b(?:Apply at most one |one |barrier 1's )code-and-test repair batc[h]\b/gi, 'barrier 1 is one sealed candidate batch, not a code/test-only batch', ['ship-ticket']],
-  [/\bA record finding ends the current ru[n]\b/gi, 'pre-existing record defects stop; sealed repair-induced prose consequences are causal change units', ['ship-ticket']],
-  [/\bIf any finding concerns the frozen record, end the current run before writin[g]\b/gi, 'the stop distinguishes immutable evidence and F0-false prose from predeclared repair-induced consequences', ['ship-ticket']],
-  [/\battempted narrative repair ends the current ru[n]\b/gi, 'only predeclared candidate prose actually falsified by barrier 1 is repairable; evidence narrative remains immutable', ['ship-ticket']],
-  [/\| changed comments, docs and ticket-produced artifacts \| the entire manifested content \| non[e] \|/gi, 'SHIP recognizes the sealed barrier-1 prose slice while forbidding all post-verdict prose writes', ['ship-ticket']],
-  [/\bbefore (?:running )?anything that writ(?:e|es)\b/gi, 'REVIEW reads the budget before the first candidate mutation; required append-only run-state remains writable', ['ship-ticket']],
-  [/\bNothing writes while they ru[n]\b/gi, 'round 1 forbids candidate mutation, not required append-only run-state entries', ['ship-ticket']],
-  [/\bbefore any repository writ[e]\b/gi, 'REVIEW stops before candidate mutation after appending the required run-state evidence', ['ship-ticket']],
-  [/\bcandidate writ(?:e|es|ing)\b/gi, 'REVIEW uses candidate mutation consistently for candidate files and frozen prefixes', ['ship-ticket']],
-  [/\bfrozen-narrative writ[e]\b/gi, 'REVIEW uses candidate mutation consistently for candidate files and frozen prefixes', ['ship-ticket']],
-  [/\bno candidate or frozen-prefix chang[e]\b/gi, 'REVIEW uses candidate mutation consistently for candidate files and frozen prefixes', ['ship-ticket']],
-  [/\brecord sweep or barrier 1 requires a writ[e]\b/gi, 'the mutation-budget stop concerns a candidate mutation, never a required run-state append', ['ship-ticket']],
-  [/\bpre-existing record finding still ends the run before writin[g]\b/gi, 'record the finding and stop before candidate mutation; append-only run-state remains permitted', ['ship-ticket']],
-  [/\bthe sealed record-impact basis, prose inventory, slice digest, exclusions,\s+causal edges and `?F0`?\/`?F1`? result rows\b/gi, 'the committed projection must include the slice claims, reconstructable F0 bytes and F0 truth evidence', ['ship-ticket']],
-  [/\bexact byte content stored in the private carrier, not merely a diges[t]\b/gi, 'sealed slice F0 bytes and truth evidence must also survive in the durable barrier-batch projection', ['ship-ticket']],
-  [/\beverything written before the freez[e]\b/gi, 'the pre-F0 batch counts candidate mutations, not required append-only run-state entries', ['ship-ticket']],
-  [/\b(?:Always validate mutation 3\. If validation requires another|The third mutation is validated; a required additional) writ[e]\b/gi, 'the mutation-budget stop concerns another candidate mutation, never a required run-state append', ['ship-ticket']],
-  [/\bREVIEW has one write barrie[r]\b/gi, 'REVIEW has one candidate-mutation barrier; append-only run-state writes are outside it', ['ship-ticket']],
-  [/\bthe only review write barrie[r]\b/gi, 'REVIEW has one candidate-mutation barrier; append-only run-state writes are outside it', ['ship-ticket']],
-  [/\bcorrection request opens another sweep or another write barrie[r]\b/gi, 'a record correction never opens another candidate-mutation barrier', ['ship-ticket']],
-  [/\bCode\/test write[s]\b/gi, 'code/test changes inside REVIEW are candidate mutations', ['ship-ticket']],
-  [/\bgrants write authorit[y]\b/gi, 'the sealed prose slice grants narrowly bounded candidate-mutation authority', ['ship-ticket']],
-  [/\bRun-state events and result-slot writes are not candidate repair[s]\b/gi, 'required append-only run-state entries are not candidate mutations', ['ship-ticket']],
-  [/\bpre-existing record finding has no repair disposition inside REVIE[W]\b/gi, 'an F0 record finding is durably recorded with the stop disposition before the run concludes', ['ship-ticket']],
-  [/\bsource_manifest_id, candidate_manifest_id and fix_packet_diges[t]\b/gi, 'the barrier batch must also retain the sealed slice entries and their evidence digest', ['ship-ticket']],
-  [/\bonly that batch entry carries its diges[t]\./gi, 'the barrier batch must also retain the sealed slice entries and their evidence digest', ['ship-ticket']],
-  [/\bbefore any prose writ[e]\b/gi, 'the sealed slice grants candidate-prose mutation authority without affecting run-state appends', ['ship-ticket']],
-  [/\bwithout a prose writ[e]\b/gi, 'the sealed slice grants candidate-prose mutation authority without affecting run-state appends', ['ship-ticket']],
-  [/\bbudget was read before the first of those write[s]\b/gi, 'the mutation budget is read before the first candidate mutation', ['ship-ticket']],
-  [/\bIf it is already 3 and\s+a write is required, end the ru[n]\b/gi, 'the mutation-budget stop concerns a candidate mutation, never a required run-state append', ['ship-ticket']],
-  [/\bappend the boundary comparison\s+and rerun evidence to the fix packet, then balance i[t]\b/gi, 'the barrier batch must durably project sealed F0 prose evidence before terminal review or cleanup', ['ship-ticket']],
-  [/\b(?:effective|provisional)[- ]lane\b/gi, 'the run lane was deleted; nothing computes a lane', ['ship-ticket']],
-  [/\b(?:per-lane|lane[- ](?:effort|depth|table|decision))\b/gi, 'the run lane was deleted; reasoning effort is pinned, never scaled', ['ship-ticket']],
-  [/\bmutation_round\b/gi, 'ship-ticket now has separate explicit PROVE and REVIEW repair limits', ['ship-ticket']],
-  [/\b(?:F0|F1)\b/g, 'ship-ticket review now binds one candidate ID and an optional repaired candidate ID', ['ship-ticket']],
-  [/\b(?:fix[_ -]packet|record[_ -]impact)\b/gi, 'ship-ticket review records compact findings and affected closure instead of a byte-level repair ledger', ['ship-ticket']],
-  [/\b(?:barrier 1|REVIEW_BARRIER_1)\b/gi, 'ship-ticket review now has one named repair batch and targeted confirmation', ['ship-ticket']],
-  [/\bround[- ]?[12]\b/gi, 'ship-ticket review uses an initial review and targeted confirmation, not numbered rounds', ['ship-ticket']],
-  [/\bterminal reviewer\b/gi, 'ship-ticket uses one primary reviewer and only confirms after a repair', ['ship-ticket']],
-  [/\bterminal verdict\b/gi, 'ship-ticket records the primary result or targeted confirmation without a separate verdict dispatch', ['ship-ticket']],
-  [/\bPar column\b/gi, 'ship-ticket schedules an execution DAG from dependencies, ownership and resource locks', ['ship-ticket']],
-  [/\bbuild sequence\b/gi, 'ship-ticket uses an execution DAG whose table order does not serialize ready nodes', ['ship-ticket']],
-  [/\bGATE [12]\b/g, 'there was never a GATE 1 or GATE 2', null],
   [/Claude Code\'s built-in review/g, '/code-review belongs to the CodeRabbit plugin; a fresh reviewer subagent is the independent route', null],
 ];
 
 function cmdHelp() {
-  console.log(`ai-skills — install & manage this repo's Claude Code skills
+  console.log(`ai-agent-skills — install & manage this repo's Claude Code skills
 
 Usage:
-  ai-skills list                      list every skill in the repo
-  ai-skills install                   install ALL skills into ~/.claude/skills
-  ai-skills install <name> [name...]  install only the named skill(s)
-  ai-skills update                    bring already-installed skills up to date
-  ai-skills update <name> [name...]   update only the named skill(s)
-  ai-skills autoupdate                show whether automatic updates are on
-  ai-skills autoupdate --install      turn them on (daily job + Claude Code hook)
-  ai-skills autoupdate --remove       turn them off again
-  ai-skills validate                  lint every skill (same checks as CI)
-  ai-skills help                      show this message
+  ai-agent-skills list                      list every skill in the repo
+  ai-agent-skills install                   install ALL skills into ~/.claude/skills
+  ai-agent-skills install <name> [name...]  install only the named skill(s)
+  ai-agent-skills update                    bring already-installed skills up to date
+  ai-agent-skills update <name> [name...]   update only the named skill(s)
+  ai-agent-skills autoupdate                show whether automatic updates are on
+  ai-agent-skills autoupdate --install      turn them on (daily job + Claude Code hook)
+  ai-agent-skills autoupdate --remove       turn them off again
+  ai-agent-skills validate                  lint every skill (same checks as CI)
+  ai-agent-skills help                      show this message
 
 Install flags:
   --copy, -c            copy real files instead of symlinking (needed on ephemeral/npx runs)
@@ -1687,14 +1451,14 @@ Autoupdate flags:
   stdout, which a SessionStart hook would inject into your session.
 
 Examples:
-  npx github:AhmedAbdelfattah0/AI-Skills install ship-ticket generate-ticket
-  npx github:AhmedAbdelfattah0/AI-Skills install --target codex
+  npx github:AhmedAbdelfattah0/ai-agent-skills install session-logger session-restore
+  npx github:AhmedAbdelfattah0/ai-agent-skills install --target codex
   node scripts/cli.mjs install --target all
   node scripts/cli.mjs install security --target claude,codex
   node scripts/cli.mjs list
   node scripts/cli.mjs update --check
   node scripts/cli.mjs update --prune
-  npx github:AhmedAbdelfattah0/AI-Skills update
+  npx github:AhmedAbdelfattah0/ai-agent-skills update
   node scripts/cli.mjs autoupdate --install`);
 }
 
