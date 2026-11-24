@@ -144,6 +144,149 @@ test('copy install writes a real directory and records its hash and mode', (t) =
   assert.match(manifest.skills.alpha.hash, /^[0-9a-f]{64}$/);
 });
 
+// ---- install never destroys what it does not own -------------------------------
+// An existing entry is replaced only when it is ours: a link to this library's own skill, or a copy
+// this library recorded and nobody edited since. Anything else is left byte-identical, named, and
+// the run ends non-zero; --replace-foreign moves it to a backup first and never deletes it.
+
+const twoSkills = (t) => world(t, { alpha: ['Alpha body.'], beta: ['Beta body.'] });
+const linkDir = (target, path) => { mkdirSync(dirname(path), { recursive: true }); symlinkSync(target, path, process.platform === 'win32' ? 'junction' : 'dir'); };
+const leftAlone = (name, why) => new RegExp(`! ${name} {2}${why} — left alone`);
+
+test('install leaves a real directory of the same name byte-identical and exits non-zero', (t) => {
+  const w = twoSkills(t);
+  put(w.claudeDir('beta', 'SKILL.md'), 'my own beta\n');
+  put(w.claudeDir('beta', 'notes', 'unique.txt'), 'only copy of this\n');
+  const r = w.run(['install', '--link']);
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, leftAlone('beta', 'present but not installed by us'));
+  assert.match(r.out, /--replace-foreign/);
+  assert.ok(!lstatSync(w.claudeDir('beta')).isSymbolicLink());
+  assert.equal(read(w.claudeDir('beta', 'SKILL.md')), 'my own beta\n');
+  assert.equal(read(w.claudeDir('beta', 'notes', 'unique.txt')), 'only copy of this\n');
+  assert.equal(realpathSync(w.claudeDir('alpha')), realpathSync(w.file('alpha')), 'the other skills still install');
+  assert.equal(readManifest(w.claudeDir()).skills.beta, undefined, 'a skipped skill is not recorded');
+});
+
+for (const [label, target] of [
+  ['an arbitrary directory', (w) => join(w.root, 'elsewhere', 'beta')],
+  ['another library clone', (w) => join(w.root, 'factory-clone', 'skills', 'beta')],
+]) {
+  test(`install leaves a foreign link into ${label} alone`, (t) => {
+    const w = twoSkills(t);
+    const dest = target(w);
+    put(join(dest, 'SKILL.md'), 'another collection\n');
+    linkDir(dest, w.claudeDir('beta'));
+    const r = w.run(['install', '--link']);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, leftAlone('beta', 'a symlink that is not ours'));
+    assert.equal(realpathSync(w.claudeDir('beta')), realpathSync(dest));
+    assert.equal(read(join(dest, 'SKILL.md')), 'another collection\n');
+  });
+}
+
+test('install leaves a dangling foreign link alone', (t) => {
+  const w = twoSkills(t);
+  const gone = join(w.root, 'gone', 'beta');
+  put(join(gone, 'SKILL.md'), 'x\n');
+  linkDir(gone, w.claudeDir('beta'));
+  rmSync(join(w.root, 'gone'), { recursive: true, force: true });
+  const r = w.run(['install', '--link']);
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, leftAlone('beta', 'a symlink that is not ours'));
+  assert.ok(lstatSync(w.claudeDir('beta')).isSymbolicLink(), 'the dangling link is still there');
+  assert.ok(!existsSync(w.claudeDir('beta')), 'and still dangles');
+});
+
+test('install leaves a copy edited after install alone', (t) => {
+  const w = twoSkills(t);
+  assert.equal(w.run(['install', '--copy']).status, 0);
+  writeFileSync(w.claudeDir('beta', 'SKILL.md'), 'my own edit\n');
+  const r = w.run(['install', '--copy']);
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, leftAlone('beta', 'edited after install'));
+  assert.equal(read(w.claudeDir('beta', 'SKILL.md')), 'my own edit\n');
+});
+
+test('install replaces its own link and its own untouched copy as before', (t) => {
+  const w = twoSkills(t);
+  assert.equal(w.run(['install', '--link']).status, 0);
+  const again = w.run(['install', '--link']);
+  assert.equal(again.status, 0, again.out);
+  assert.doesNotMatch(again.out, /left alone/);
+  const toCopy = w.run(['install', '--copy']);
+  assert.equal(toCopy.status, 0, toCopy.out);
+  assert.ok(!lstatSync(w.claudeDir('beta')).isSymbolicLink(), 'our link became our copy');
+  w.writeSkill('beta', ['Beta body, revised.']);
+  const refreshed = w.run(['install', '--copy']);
+  assert.equal(refreshed.status, 0, refreshed.out);
+  assert.match(read(w.claudeDir('beta', 'SKILL.md')), /Beta body, revised\./);
+});
+
+test('install --replace-foreign moves the entry to a backup, then installs', (t) => {
+  const w = twoSkills(t);
+  put(w.claudeDir('beta', 'SKILL.md'), 'my own beta\n');
+  put(w.claudeDir('beta', 'notes', 'unique.txt'), 'only copy of this\n');
+  const r = w.run(['install', '--link', '--replace-foreign']);
+  assert.equal(r.status, 0, r.out);
+  const m = r.out.match(/beta {2}moved to (.+)$/m);
+  assert.ok(m, `the backup path is printed:\n${r.out}`);
+  const backup = m[1].trim();
+  assert.ok(backup.startsWith(join(w.root, 'state')), `backup lives under the state dir: ${backup}`);
+  assert.equal(read(join(backup, 'SKILL.md')), 'my own beta\n');
+  assert.equal(read(join(backup, 'notes', 'unique.txt')), 'only copy of this\n');
+  assert.equal(realpathSync(w.claudeDir('beta')), realpathSync(w.file('beta')));
+});
+
+test('update still leaves a foreign link alone', (t) => {
+  const w = twoSkills(t);
+  assert.equal(w.run(['install', '--link', 'alpha']).status, 0);
+  const dest = join(w.root, 'factory-clone', 'skills', 'beta');
+  put(join(dest, 'SKILL.md'), 'another collection\n');
+  linkDir(dest, w.claudeDir('beta'));
+  const r = w.update(['beta']);
+  assert.match(r.out, /beta {2}symlink to .* — not ours, left alone/);
+  assert.equal(realpathSync(w.claudeDir('beta')), realpathSync(dest));
+});
+
+// scripts/install.sh applies the same rule: it replaces only its own link into this clone.
+function bashInstall(w, args) {
+  cpSync(join(SCRIPTS, 'install.sh'), join(w.lib, 'scripts', 'install.sh'));
+  const env = childEnv({ HOME: w.home, XDG_STATE_HOME: join(w.root, 'state') });
+  const r = spawnSync('bash', [join(w.lib, 'scripts', 'install.sh'), ...args], { cwd: w.root, env, encoding: 'utf8' });
+  return { status: r.status, out: `${r.stdout}${r.stderr}` };
+}
+const unixOnly = { skip: process.platform === 'win32' && 'install.sh symlinks are a Unix path' };
+
+test('install.sh leaves a real directory and a foreign link alone, and exits non-zero', unixOnly, (t) => {
+  const w = world(t, { alpha: ['Alpha body.'], beta: ['Beta body.'], gamma: ['Gamma body.'] });
+  put(w.claudeDir('beta', 'notes', 'unique.txt'), 'only copy of this\n');
+  const dest = join(w.root, 'factory-clone', 'skills', 'gamma');
+  put(join(dest, 'SKILL.md'), 'another collection\n');
+  linkDir(dest, w.claudeDir('gamma'));
+  const r = bashInstall(w, ['--link']);
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, /beta .*left alone/);
+  assert.match(r.out, /gamma .*left alone/);
+  assert.equal(read(w.claudeDir('beta', 'notes', 'unique.txt')), 'only copy of this\n');
+  assert.equal(realpathSync(w.claudeDir('gamma')), realpathSync(dest));
+  assert.equal(realpathSync(w.claudeDir('alpha')), realpathSync(w.file('alpha')));
+  const again = bashInstall(w, ['--link', 'alpha']);
+  assert.equal(again.status, 0, again.out);
+  assert.equal(realpathSync(w.claudeDir('alpha')), realpathSync(w.file('alpha')), 'its own link is replaced');
+});
+
+test('install.sh --replace-foreign backs the entry up, then installs', unixOnly, (t) => {
+  const w = twoSkills(t);
+  put(w.claudeDir('beta', 'notes', 'unique.txt'), 'only copy of this\n');
+  const r = bashInstall(w, ['--link', '--replace-foreign']);
+  assert.equal(r.status, 0, r.out);
+  const m = r.out.match(/beta {2}moved to (.+)$/m);
+  assert.ok(m, r.out);
+  assert.equal(read(join(m[1].trim(), 'notes', 'unique.txt')), 'only copy of this\n');
+  assert.equal(realpathSync(w.claudeDir('beta')), realpathSync(w.file('beta')));
+});
+
 // ---- update ------------------------------------------------------------------
 
 test('update refreshes an unchanged copy without any flag', (t) => {
