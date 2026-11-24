@@ -162,13 +162,27 @@ for l in "$DEST"/*; do                                   # only links whose real
 done
 rm -f "$DEST/.ai-agent-skills-manifest.json"
 rm -rf "$CLONE"
-rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/ai-agent-skills"   # lock, last-run stamp, update.log
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/ai-agent-skills"
+for k in "$STATE"/*/; do                                 # per-clone <key> dirs: only the updater's files
+  rm -f "$k/update.lock" "$k/last-run" "$k/update.log"
+  rmdir "$k" 2>/dev/null || true                         # stays if it holds replaced/ backups
+done
+rmdir "$STATE" 2>/dev/null || true                       # stays if anything is left in it
+ls -R "$STATE" 2>/dev/null                               # whatever is listed here was kept on purpose
 ```
 
 Repeat the loop for every target directory you installed into. Links are compared by real path, so
 the loop also works when `HOME` itself is a symlink. It removes only links that resolve into this
 clone, so links another library installed stay. A link whose target no longer exists is not
-removed; delete it by hand. On Windows the state directory is
+removed; delete it by hand.
+
+The state steps remove only the updater's lock, last-run stamp and log. They never remove
+`--replace-foreign` backups, which are the only copy of what was there before:
+- `cli.mjs` keeps them in `<state>/ai-agent-skills/<key>/replaced/`;
+- `scripts/install.sh` keeps them in `<state>/ai-agent-skills/replaced/`.
+
+Here `<state>` is `$XDG_STATE_HOME`, or `~/.local/state` when that is not set. Review those
+directories and restore or delete them yourself. On Windows the state directory is
 `%LOCALAPPDATA%\ai-agent-skills`. For a copy install (npx or
 `--copy`), delete the directories named under `skills` in `.ai-agent-skills-manifest.json`, then the
 manifest; check first that each one is still this library's copy, since a folder of the same name
