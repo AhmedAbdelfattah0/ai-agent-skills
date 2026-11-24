@@ -11,31 +11,74 @@ someone else. This repository is never published to npm. The supported installs 
 
 ## Before you install
 
-`install` writes each skill under its folder name into the target directory. If an entry of that
-name already exists, it is replaced without a prompt or a backup:
-- `cli.mjs` moves it aside and deletes it once the new one is in place;
-- `scripts/install.sh` runs `rm -rf` on it;
-- the curl installer runs `install` unprompted.
+`install` replaces an existing entry only when it is this library's own: a link to this clone's
+skill, or a copy this library recorded in `.ai-agent-skills-manifest.json` that nobody has edited
+since. This is the same ownership test `update` uses. Anything else under a skill's name is left
+byte-identical: a real directory, a link elsewhere (including into the Factory clone), a dangling
+link, or an edited copy. Each one is reported with the reason, for example
 
-This behaviour is inherited from the Factory installer. Only `update` checks ownership: it leaves
-alone what it did not install. The tests that covered install collisions were removed with the
-retired-alias tests: `scripts/cli.test.mjs` has 31 `test(` call sites here, against 68 in the
-Factory's.
+```
+   ! security  a symlink that is not ours — left alone: /Users/you/.claude/skills/security
+     move it yourself, or re-run with --replace-foreign to back it up under <state>/replaced and install
+```
 
-Check each target directory first, and back it up if anything is listed:
+The other skills are still installed, and the command exits 1.
+
+`--replace-foreign` moves each such entry to
+`~/.local/state/ai-agent-skills/<key>/replaced/<timestamp>/<target>/<name>` (`$XDG_STATE_HOME`, or
+`%LOCALAPPDATA%` on Windows), prints the path, and then installs. It never deletes. The curl
+installer passes it when `AI_AGENT_SKILLS_REPLACE_FOREIGN=1`. `scripts/install.sh` has the same rule
+and flag; it backs up to `~/.local/state/ai-agent-skills/replaced/<timestamp>/`. Because it writes no
+manifest, it replaces only its own links: a copy it made earlier counts as foreign.
+
+Optionally, see what is there first:
 
 ```bash
 DEST="$HOME/.claude/skills"      # repeat for ~/.agents/skills, ~/.gemini/skills, ~/.gemini/config/skills
 for n in design-prompts marketing-video project-audit security security-audit self-healing session-logger session-restore; do
   p="$DEST/$n"
-  if [ -L "$p" ]; then echo "WILL REPLACE link $n -> $(readlink "$p")"
-  elif [ -e "$p" ]; then echo "WILL REPLACE real directory $n"
-  fi
+  if [ -L "$p" ]; then echo "link $n -> $(readlink "$p")"; elif [ -e "$p" ]; then echo "real directory $n"; fi
 done
-cp -RP "$DEST" "$DEST.bak-$(date +%Y%m%d%H%M%S)"   # backup; -P keeps links as links
+cp -RP "$DEST" "$DEST.bak-$(date +%Y%m%d%H%M%S)"   # optional backup; -P keeps links as links
 ```
 
-The list is the eight skills in the README; from a clone, `ls skills` gives the same names.
+## Migrating from the Factory install
+
+On a machine where the Factory repository (`~/.ai-skills`) is installed, the eight skills that moved
+here are still symlinks into `~/.ai-skills/skills/<name>`. `install` correctly refuses to replace
+them. Migrate once, by hand:
+
+```bash
+FA="$(cd ~/.ai-skills && pwd -P)"
+REC=~/ai-agent-skills-migration.tsv; : > "$REC"
+MOVED="design-prompts marketing-video project-audit security security-audit self-healing session-logger session-restore"
+DIRS="$HOME/.claude/skills $HOME/.agents/skills $HOME/.gemini/skills $HOME/.gemini/antigravity/skills"
+# 1. record each of the 8 names that is a symlink into the Factory clone (nothing else)
+for d in $DIRS; do for n in $MOVED; do
+  e="$d/$n"
+  if [ -L "$e" ] && [ "$(cd "$e" 2>/dev/null && pwd -P)" = "$FA/skills/$n" ]; then
+    printf '%s\t%s\t%s\n' "$d" "$n" "$(readlink "$e")" >> "$REC"
+  elif [ -e "$e" ] || [ -L "$e" ]; then echo "not a Factory link, left untouched: $e"; fi
+done; done
+cat "$REC"
+# 2. remove ONLY those verified symlinks (never a directory)
+while IFS="$(printf '\t')" read -r d n t; do
+  [ -L "$d/$n" ] && [ "$(cd "$d/$n" && pwd -P)" = "$FA/skills/$n" ] && rm "$d/$n"
+done < "$REC"
+# 3. install from this library
+node ~/.ai-agent-skills/scripts/cli.mjs install --link --target claude,agents,gemini
+node ~/.ai-agent-skills/scripts/cli.mjs install --link --dest ~/.gemini/antigravity/skills
+# 4. verify: every recorded entry is now a link into ~/.ai-agent-skills/skills/<name>
+while IFS="$(printf '\t')" read -r d n t; do echo "$d/$n -> $(cd "$d/$n" && pwd -P)"; done < "$REC"
+```
+
+Rollback re-links the recorded entries to the Factory clone. First remove each link only if it
+points into `~/.ai-agent-skills/skills/<name>`, then `ln -s "$t" "$d/$n"` for every line of the
+record, then delete `.ai-agent-skills-manifest.json` from each directory. Skip any directory that is
+not in the record.
+
+Step 1 lists any of the eight names that is a real directory (your own copy). Step 3 then reports it
+as left alone, and it is never removed.
 
 ## Targets
 

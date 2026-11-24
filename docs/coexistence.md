@@ -24,6 +24,11 @@ Each library recognises its own SessionStart hook by the absolute path of its ow
 Skills are installed by folder name into the same directories, so one name can be installed by only
 one library at a time. Until the Factory repository removes the skills that moved here, both ship
 `design-prompts`, `marketing-video`, `project-audit`, `security`, `security-audit`, `self-healing`,
-`session-logger` and `session-restore`. Whichever library installs such a skill last owns its link.
-The other library's `update` then reports the link as another checkout's and leaves it alone. Install
-these eight skills from this library only.
+`session-logger` and `session-restore`.
+
+This library's `install` never replaces the Factory's link to one of those names. It reports the link
+and exits 1 (`--replace-foreign` backs the link up instead). The Factory's own installer does replace
+this library's links. Each library's `update` leaves the other's links alone. To move the eight names
+over from an existing Factory install, follow
+[the migration in install.md](install.md#migrating-from-the-factory-install). Install these eight
+skills from this library only.

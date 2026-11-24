@@ -35,11 +35,12 @@ Needs `git` and Node 22+.
 > published to npm. The only supported installs are `npx github:AhmedAbdelfattah0/ai-agent-skills`,
 > a git clone, or the curl installer below.
 
-> **`install` replaces same-named skills without asking.** If a target directory already holds an
-> entry with one of this library's skill names (your own folder, or another library's link),
-> `install` (and the curl one-liner, and `scripts/install.sh`) deletes and replaces it. It makes no
-> prompt and keeps no backup. `update` is safe: it leaves entries it did not install alone. Check
-> first and back up: see [docs/install.md](docs/install.md#before-you-install).
+> **`install` never replaces what it does not own.** If a target directory already holds an entry
+> with one of this library's skill names, such as your own folder or another library's link, that
+> entry is left untouched. `install` names it, installs the other skills, and exits 1.
+> `--replace-foreign` (`AI_AGENT_SKILLS_REPLACE_FOREIGN=1` for the curl installer) moves such entries
+> to a backup first, never deletes them. If you have the Factory installed, see the one-time
+> migration in [docs/install.md](docs/install.md#migrating-from-the-factory-install).
 
 ```bash
 # one line: clone into ~/.ai-agent-skills, link every skill into ~/.claude/skills, turn on daily updates

@@ -1,9 +1,14 @@
 # Known limitations
 
-- **`install` replaces same-named entries without a prompt or backup.** This covers `cli.mjs install`,
-  `scripts/install.sh` (`rm -rf`) and the curl installer, and is inherited from the Factory installer.
-  `update` does check ownership. The install-collision tests went with the retired-alias tests. The
-  pre-flight check and backup are in [install.md](install.md#before-you-install).
+- **Install collisions stop the run with exit 1.** `install` leaves an entry it does not own
+  untouched and exits 1 (see [install.md](install.md#before-you-install)). The curl installer then
+  stops before turning on automatic updates. Resolve the entry, or re-run with
+  `AI_AGENT_SKILLS_REPLACE_FOREIGN=1`, which backs it up.
+- **The Factory installer is not protected.** The Factory repository's own `install` (at the split
+  commit) still replaces same-named entries. While both are installed, installing the Factory after
+  this library takes over the shared names; see [coexistence.md](coexistence.md).
+- **`scripts/install.sh` copies are foreign to it.** It writes no manifest, so re-running it in
+  `--copy` mode over its own earlier copy needs `--replace-foreign` (which backs the copy up).
 - **npm names are taken by others.** The npm packages `ai-agent-skills` and `ai-skills` belong to
   other publishers. This repository is never published to npm: use
   `npx github:AhmedAbdelfattah0/ai-agent-skills`, a clone, or the curl installer.

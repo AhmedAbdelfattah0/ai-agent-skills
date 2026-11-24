@@ -79,3 +79,18 @@ belong to the Factory.
 | `skills/project-audit/SKILL.md` and `references/{evidence,reconcile-report,scope-inventory}.md` | relative links to Factory skills become plain names; an "Optional companions (separate repository)" note is added. Fallbacks unchanged. |
 | `skills/marketing-video/SKILL.md` | the link to `ship-ticket`'s `cross-model.md` becomes a plain name (fallback unchanged); a private project name is removed from the capability table |
 | `skills/self-healing/references/skill-creation-guide.md` | the invariant list follows this validator (outcome vocabulary: at most one owner; the rule-ID check is described as the Factory library's); the review-standard path becomes a companion name |
+
+## Behaviour change after the split: install never replaces what it does not own
+
+Owner decision, before the first release. At the source, `install` (`cli.mjs` and
+`scripts/install.sh`) replaced any entry under a skill's name. In this repository:
+
+- **`cli.mjs install`** applies the ownership test `update` already uses (`successorCollision`) to
+  every skill, not only to alias successors. An entry that is not ours is left alone and reported,
+  and the command exits 1.
+- **`--replace-foreign`** (new) moves such an entry to
+  `<state>/ai-agent-skills/<key>/replaced/<stamp>/<target>/<name>` and then installs. It never deletes.
+- **`scripts/install.sh`** applies the same rule to its own links and has the same flag.
+- **`install.sh`** passes the flag when `AI_AGENT_SKILLS_REPLACE_FOREIGN=1`.
+- **`update`**, the updater, hooks, manifests and identifiers are unchanged.
+- **`scripts/cli.test.mjs`** gains 10 tests.
