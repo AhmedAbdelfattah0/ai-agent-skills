@@ -6,7 +6,10 @@ dependency-free installer for Windows, macOS and Linux. The skills are written f
 Antigravity or any other tool that reads `SKILL.md` folders.
 
 Each skill lives in `skills/<name>/` with a `SKILL.md` and optional `references/` or `scripts/`.
-Nothing here depends on another repository.
+The repository is self-contained to install and run. `security-audit` is vendored from
+[cloudflare/security-audit-skill](https://github.com/cloudflare/security-audit-skill) and synced
+daily. Some skills name optional companions that live in another repository and document a
+fallback for when they are absent (see [Optional companions](#optional-companions)).
 
 ## Skills (8)
 
@@ -84,6 +87,10 @@ documents and marks that coverage `DEGRADED`.
 Add `skills/<name>/SKILL.md` whose frontmatter `name:` equals the folder name and has a
 `description:`, then run `node scripts/cli.mjs validate` (CI runs the same check). The rules are in
 [AGENTS.md](AGENTS.md).
+
+## Known limitations
+
+See [docs/known-limitations.md](docs/known-limitations.md).
 
 ## License
 
