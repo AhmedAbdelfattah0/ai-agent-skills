@@ -80,9 +80,11 @@ rm -f "$DEST/.ai-agent-skills-manifest.json"
 rm -rf "$CLONE"
 ```
 
-Repeat the loop for every target directory you installed into. For a copy install (npx or
+Repeat the loop for every target directory you installed into. The loop removes only links that
+point into this clone, so links another library installed stay. For a copy install (npx or
 `--copy`), delete the directories named under `skills` in `.ai-agent-skills-manifest.json`, then the
-manifest. Links and folders that another library installed are left alone either way.
+manifest; check first that each one is still this library's copy, since a folder of the same name
+may since have been installed by another library.
 
 ## Bash installer
 
