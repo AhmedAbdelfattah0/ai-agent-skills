@@ -4,10 +4,19 @@ This library was split out of `AhmedAbdelfattah0/AI-Skills` at commit `bb6c054`.
 
 - **Skills.** The eight skill folders, `external-skills.json`, `scripts/sync-external.mjs` and
   `.github/workflows/sync-external.yml` keep their history (git-filter-repo `--path`). At the split
-  commit, every skill tree is byte-identical to `bb6c054:skills/<name>`. The commits after the split
+  commit, every skill tree is byte-identical to `bb6c054:skills/<name>`, except for the one scrubbed
+  line in `marketing-video` (next item). The commits after the split
   list every later edit.
+- **Scrubbed history.** Before publication, a second git-filter-repo pass (`--replace-text`,
+  `--replace-message`) replaced a private project name with "a private project" and a private ticket
+  key with `TICKET-108`. This touched one line of `skills/marketing-video/SKILL.md` in the preserved
+  file versions, one preserved commit message, and two lines of the verbatim tooling commit (a
+  `cli.mjs` comment and a `cli.test.mjs` string; both lines are removed by the adaptation commit).
+  Commit counts, authors, dates and every other byte are unchanged. Commit SHAs therefore differ
+  from the source, and at the split commit `skills/marketing-video` differs from `bb6c054` by that
+  one line. [SOURCE-MAP.md](SOURCE-MAP.md) maps every preserved commit to its source commit.
 - **Tooling.** Commit `chore: import the shared installer tooling verbatim` copies the installer
-  files byte-for-byte from `bb6c054`. The commit after it is the whole adaptation, so
+  files byte-for-byte from `bb6c054`, apart from the scrubbed ticket key. The commit after it is the whole adaptation, so
   `git diff <verbatim> <adapted> -- scripts install.sh package.json .gitattributes` reproduces the
   list below. Anything not listed is unchanged.
 
@@ -53,6 +62,8 @@ which already differs between the two libraries, so the hook logic is unchanged.
 | `.gitattributes` | removed: all five rules pinned `skills/ship-ticket` or `skills/vapt` paths | Factory-only |
 | `scripts/cli.test.mjs` | manifest name and `AI_AGENT_SKILLS_*` env; alias and cited-rule-ID tests removed; the code-quality row-header test removed; retired-term tests use the kept `Claude Code's built-in review` entry; outcome-vocabulary tests follow the at-most-one rule (zero owners is now accepted); CI-shape test expects jobs `validate` and `cli` | follows the changes above |
 | `scripts/import.sh`, `scripts/package.sh`, `scripts/validate.sh`, `.gitignore` | unchanged | |
+| `LICENSE` | new: MIT, copyright holder `AhmedAbdelfattah0` (the source repository has no LICENSE file; its `package.json` declares MIT) | new repository |
+| `SOURCE-MAP.md` | new: source commit → this repository's commit for the 42 preserved commits | new repository |
 | `CLAUDE.md` | rewritten as a short pointer to the new `AGENTS.md` | new repository |
 | `README.md`, `AGENTS.md`, `docs/` | written for this repository | new repository |
 | `.github/workflows/validate.yml` | new: the validator, the moved skills' tests and the CLI matrix, with the source's action versions | new repository |

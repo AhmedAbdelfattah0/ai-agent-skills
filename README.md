@@ -87,5 +87,5 @@ Add `skills/<name>/SKILL.md` whose frontmatter `name:` equals the folder name an
 
 ## License
 
-`package.json` declares MIT. `skills/security-audit` carries its upstream license
-(`skills/security-audit/LICENSE`).
+MIT, see [LICENSE](LICENSE). `skills/security-audit` keeps its upstream MIT license
+(`skills/security-audit/LICENSE`, Cloudflare, Inc.).
