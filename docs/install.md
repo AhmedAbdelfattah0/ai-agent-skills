@@ -18,7 +18,7 @@ byte-identical: a real directory, a link elsewhere (including into the Factory c
 link, or an edited copy. Each one is reported with the reason, for example
 
 ```
-   ! security  a symlink that is not ours — left alone: /Users/you/.claude/skills/security
+   ! security  a symlink that is not ours — left alone: ~/.claude/skills/security
      move it yourself, or re-run with --replace-foreign to back it up under <state>/replaced and install
 ```
 

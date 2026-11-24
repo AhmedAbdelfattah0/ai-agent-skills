@@ -52,3 +52,15 @@ added there.
   this library's own (docs/coexistence.md). Do not reuse the Factory repository's names.
 - **Isolation in tests.** Tests run the CLI against a temporary HOME and never call
   `autoupdate --install` or `--remove`, which would register a real scheduled job.
+
+## Privacy expectations
+
+This repository is public. In anything you commit (code, docs, tests, commit messages):
+
+- use neutral project names, ticket IDs and examples (`acme-shop`, `TICKET-123`), never a real
+  private project, customer or tracker key;
+- add no session URLs or session trailers to commits; a `Co-Authored-By` line is fine;
+- include no personal filesystem paths (use `~` or placeholders), e-mail addresses other than
+  GitHub noreply ones, or credentials and tokens.
+
+This is a convention for contributors and agents. No CI check enforces it.
