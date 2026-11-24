@@ -30,6 +30,17 @@ fallback for when they are absent (see [Optional companions](#optional-companion
 
 Needs `git` and Node 22+.
 
+> **Never run a bare `npx ai-agent-skills` or `npm i -g ai-agent-skills`.** The npm package named
+> `ai-agent-skills` belongs to another publisher; it is not this project. This repository is never
+> published to npm. The only supported installs are `npx github:AhmedAbdelfattah0/ai-agent-skills`,
+> a git clone, or the curl installer below.
+
+> **`install` replaces same-named skills without asking.** If a target directory already holds an
+> entry with one of this library's skill names (your own folder, or another library's link),
+> `install` (and the curl one-liner, and `scripts/install.sh`) deletes and replaces it. It makes no
+> prompt and keeps no backup. `update` is safe: it leaves entries it did not install alone. Check
+> first and back up: see [docs/install.md](docs/install.md#before-you-install).
+
 ```bash
 # one line: clone into ~/.ai-agent-skills, link every skill into ~/.claude/skills, turn on daily updates
 curl -fsSL https://raw.githubusercontent.com/AhmedAbdelfattah0/ai-agent-skills/main/install.sh | bash

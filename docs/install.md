@@ -1,8 +1,41 @@
 # Install, update and uninstall
 
-All commands below use `node scripts/cli.mjs` from a clone. After `npm link` in the clone the same
-commands are available as `ai-agent-skills <command>`; through npx they are
-`npx github:AhmedAbdelfattah0/ai-agent-skills <command>`.
+All commands below use `node scripts/cli.mjs` from a clone. After `npm link` in the clone, the same
+commands are available as `ai-agent-skills <command>`. `npm link` links this clone and does not
+download anything. Through npx they are `npx github:AhmedAbdelfattah0/ai-agent-skills <command>`.
+
+**Never run a bare `npx ai-agent-skills` or `npm i -g ai-agent-skills`.** The npm package of that
+name belongs to another publisher; the Factory repository's `ai-skills` name is also taken on npm by
+someone else. This repository is never published to npm. The supported installs are
+`npx github:AhmedAbdelfattah0/ai-agent-skills`, a git clone, and the curl installer.
+
+## Before you install
+
+`install` writes each skill under its folder name into the target directory. If an entry of that
+name already exists, it is replaced without a prompt or a backup:
+- `cli.mjs` moves it aside and deletes it once the new one is in place;
+- `scripts/install.sh` runs `rm -rf` on it;
+- the curl installer runs `install` unprompted.
+
+This behaviour is inherited from the Factory installer. Only `update` checks ownership: it leaves
+alone what it did not install. The tests that covered install collisions were removed with the
+retired-alias tests: `scripts/cli.test.mjs` has 31 `test(` call sites here, against 68 in the
+Factory's.
+
+Check each target directory first, and back it up if anything is listed:
+
+```bash
+DEST="$HOME/.claude/skills"      # repeat for ~/.agents/skills, ~/.gemini/skills, ~/.gemini/config/skills
+for n in design-prompts marketing-video project-audit security security-audit self-healing session-logger session-restore; do
+  p="$DEST/$n"
+  if [ -L "$p" ]; then echo "WILL REPLACE link $n -> $(readlink "$p")"
+  elif [ -e "$p" ]; then echo "WILL REPLACE real directory $n"
+  fi
+done
+cp -RP "$DEST" "$DEST.bak-$(date +%Y%m%d%H%M%S)"   # backup; -P keeps links as links
+```
+
+The list is the eight skills in the README; from a clone, `ls skills` gives the same names.
 
 ## Targets
 
@@ -62,8 +95,16 @@ The daily job is a launchd agent `com.ai-agent-skills.update` (macOS), a systemd
 `ai-agent-skills-update` (Linux) or a scheduled task `AI Agent Skills Update` (Windows). The hook is
 a SessionStart entry in `~/.claude/settings.json` that runs this clone's `scripts/cli.mjs update
 --auto`. `--job-only` and `--hook-only` limit either flag to one of the two. An `--auto` run is
-locked, throttled to once an hour, ignores `--force`, `--adopt` and `--prune`, and writes only to its
-log under `~/.local/state/ai-agent-skills/` (`%LOCALAPPDATA%` on Windows).
+locked, throttled to once an hour, and ignores `--force`, `--adopt` and `--prune`. It prints nothing.
+
+It is not passive:
+- it runs `git pull --ff-only` in the clone;
+- it installs skills newly added upstream when you installed the whole library;
+- it refreshes untouched copies;
+- it rewrites `.ai-agent-skills-manifest.json`.
+
+Its lock, last-run stamp and log live under `~/.local/state/ai-agent-skills/<key>/`
+(`$XDG_STATE_HOME`, or `%LOCALAPPDATA%` on Windows).
 
 ## Uninstall
 
@@ -71,17 +112,21 @@ There is no `uninstall` command. For the default curl install (symlinks into
 `~/.ai-agent-skills`, target `claude`):
 
 ```bash
-CLONE="$HOME/.ai-agent-skills"; DEST="$HOME/.claude/skills"
+CLONE="$(cd "$HOME/.ai-agent-skills" && pwd -P)"; DEST="$HOME/.claude/skills"   # real path
 node "$CLONE/scripts/cli.mjs" autoupdate --remove        # daily job + SessionStart hook
-for l in "$DEST"/*; do                                   # only links that point into this clone
-  [ -L "$l" ] && case "$(readlink "$l")" in "$CLONE/skills/"*) rm "$l" ;; esac
+for l in "$DEST"/*; do                                   # only links whose real target is in this clone
+  [ -L "$l" ] && case "$(cd "$l" 2>/dev/null && pwd -P)" in "$CLONE/skills/"*) rm "$l" ;; esac
 done
 rm -f "$DEST/.ai-agent-skills-manifest.json"
 rm -rf "$CLONE"
+rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/ai-agent-skills"   # lock, last-run stamp, update.log
 ```
 
-Repeat the loop for every target directory you installed into. The loop removes only links that
-point into this clone, so links another library installed stay. For a copy install (npx or
+Repeat the loop for every target directory you installed into. Links are compared by real path, so
+the loop also works when `HOME` itself is a symlink. It removes only links that resolve into this
+clone, so links another library installed stay. A link whose target no longer exists is not
+removed; delete it by hand. On Windows the state directory is
+`%LOCALAPPDATA%\ai-agent-skills`. For a copy install (npx or
 `--copy`), delete the directories named under `skills` in `.ai-agent-skills-manifest.json`, then the
 manifest; check first that each one is still this library's copy, since a folder of the same name
 may since have been installed by another library.

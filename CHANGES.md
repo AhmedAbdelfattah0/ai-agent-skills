@@ -16,7 +16,8 @@ This library was split out of `AhmedAbdelfattah0/AI-Skills` at commit `bb6c054`.
   from the source, and at the split commit `skills/marketing-video` differs from `bb6c054` by that
   one line. [SOURCE-MAP.md](SOURCE-MAP.md) maps every preserved commit to its source commit.
 - **Tooling.** Commit `chore: import the shared installer tooling verbatim` copies the installer
-  files byte-for-byte from `bb6c054`, apart from the scrubbed ticket key. The commit after it is the whole adaptation, so
+  files byte-for-byte from `bb6c054`, apart from the scrubbed ticket key: commit `07257e0` differs from
+  `bb6c054` only by `TICKET-108` → `TICKET-108` in two lines. The commit after it is the whole adaptation, so
   `git diff <verbatim> <adapted> -- scripts install.sh package.json .gitattributes` reproduces the
   list below. Anything not listed is unchanged.
 
