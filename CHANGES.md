@@ -23,7 +23,7 @@ This library was split out of `AhmedAbdelfattah0/AI-Skills` at commit `bb6c054`.
   this rewrite: `07257e0` is now `6bbf2c9`.
 - **Tooling.** Commit `chore: import the shared installer tooling verbatim` copies the installer
   files byte-for-byte from `bb6c054`, apart from the scrubbed ticket key: commit `6bbf2c9` differs from
-  `bb6c054` only by `TICKET-108` → `TICKET-108` in two lines. The commit after it is the whole adaptation, so
+  `bb6c054` only by one private ticket key replaced with `TICKET-108` in two lines. The commit after it is the whole adaptation, so
   `git diff <verbatim> <adapted> -- scripts install.sh package.json .gitattributes` reproduces the
   list below. Anything not listed is unchanged.
 
