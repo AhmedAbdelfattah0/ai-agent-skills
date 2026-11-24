@@ -94,7 +94,7 @@ Report this honestly; never claim an unbuilt path works.
 | Capability | Status |
 |---|---|
 | Screenshot → motion video, captions (incl. Arabic RTL), MP4, editable snapshot | built and tested locally |
-| Manual recordings as shots (trim, mute/keep audio) | built; used for a real product reel (a private project) |
+| Manual recordings as shots (trim, mute/keep audio) | built; used for a real product reel |
 | Voice from a take the user generates by hand on a provider's website (e.g. ElevenLabs), cut into lines | built and used |
 | Draft voice via macOS `say` | built; MSA only and robotic — not for anything the user hears |
 | Egyptian Arabic voice | via a hand-generated take; automated generation needs a paid plan with commercial rights |
