@@ -15,8 +15,14 @@ This library was split out of `AhmedAbdelfattah0/AI-Skills` at commit `bb6c054`.
   Commit counts, authors, dates and every other byte are unchanged. Commit SHAs therefore differ
   from the source, and at the split commit `skills/marketing-video` differs from `bb6c054` by that
   one line. [SOURCE-MAP.md](SOURCE-MAP.md) maps every preserved commit to its source commit.
+- **Commit messages of the new commits.** Before publication, a message-only rewrite
+  (git-filter-repo `--commit-callback`) removed the `Claude-Session:` session-link trailers from
+  every commit made after the split. Trees, authors and dates are unchanged, and the 42 preserved
+  commits keep their SHAs, so SOURCE-MAP.md is unaffected. 9 preserved commits still carry such a
+  trailer from the already-public source history. A few new commit messages name SHAs from before
+  this rewrite: `07257e0` is now `6bbf2c9`.
 - **Tooling.** Commit `chore: import the shared installer tooling verbatim` copies the installer
-  files byte-for-byte from `bb6c054`, apart from the scrubbed ticket key: commit `07257e0` differs from
+  files byte-for-byte from `bb6c054`, apart from the scrubbed ticket key: commit `6bbf2c9` differs from
   `bb6c054` only by `TICKET-108` → `TICKET-108` in two lines. The commit after it is the whole adaptation, so
   `git diff <verbatim> <adapted> -- scripts install.sh package.json .gitattributes` reproduces the
   list below. Anything not listed is unchanged.
